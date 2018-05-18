@@ -1,0 +1,71 @@
+<html>
+    <head>
+        <script id="default-vertex-shader" type="x-shader/x-vertex">
+            attribute vec2 a_vpos;                                  
+            attribute vec2 a_tpos;                                  
+            varying vec2 v_tpos;     
+
+            void main() {                                          
+                v_tpos = a_tpos;                                     
+                gl_Position = vec4(a_vpos * 2.0 - 1.0, 0.0, 1.0);    
+            }
+        </script>
+        <script id="default-fragment-shader" type="x-shader/x-fragment">
+            precision highp float;                              
+            uniform sampler2D u_texture;                        
+            varying vec2 v_tpos;                                
+            void main() {                                       
+                gl_FragColor = texture2D(u_texture, v_tpos);      
+            }
+        </script>
+        <script id="flip-fragment-shader" type="x-shader/x-fragment">
+            precision highp float;
+            uniform sampler2D u_texture;
+            varying vec2 v_tpos;
+            void main() {
+                gl_FragColor = texture2D(u_texture, vec2(v_tpos.x, 1.0 - v_tpos.y));
+            }
+        </script>
+        <script id="blur-fragment-shader" type="x-shader/x-fragment">
+            precision highp float;
+            uniform sampler2D u_texture;
+            uniform vec2 delta;
+            varying vec2 v_tpos;
+            float random(vec3 scale, float seed) {
+                /* use the fragment position for a different seed per-pixel */
+                return fract(sin(dot(gl_FragCoord.xyz + seed, scale)) * 43758.5453 + seed);
+            }
+            void main() {
+                vec4 color = vec4(0.0);
+                float total = 0.0;
+                
+                /* randomize the lookup values to hide the fixed number of samples */
+                float offset = random(vec3(12.9898, 78.233, 151.7182), 0.0);
+                
+                for (float t = -30.0; t <= 30.0; t++) {
+                    float percent = (t + offset - 0.5) / 30.0;
+                    float weight = 1.0 - abs(percent);
+                    vec4 sample = texture2D(u_texture, v_tpos + delta * percent);
+                    
+                    /* switch to pre-multiplied alpha to correctly blur transparent images */
+                    sample.rgb *= sample.a;
+                    
+                    color += sample * weight;
+                    total += weight;
+                }
+                
+                gl_FragColor = color / total;
+                
+                /* switch back from pre-multiplied alpha */
+                gl_FragColor.rgb /= gl_FragColor.a + 0.00001;
+            }
+        </script>
+    </head>
+    <body>
+        <video controls id="video" width="400" height="225" crossorigin="anonymous" preload="metadata"></video>
+        <canvas id="canvas" width="400" height="200"></canvas>
+        <script src="Shader.js"></script>
+        <script src="Texture.js"></script>
+        <script src="main.js"></script>
+    </body>
+</html>
